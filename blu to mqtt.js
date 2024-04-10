@@ -1,8 +1,7 @@
 /**
  * This script uses the BLE scan functionality in scripting
  * Selects Shelly BLU DoorWindow from the aired advertisements, decodes
- * the service data payload and toggles a relay on the device on
- * button push
+ * the service data payload and transfert it to an MQTT broker
  */
 
 // Shelly BLU devices:
@@ -32,53 +31,25 @@
 // AD 4: Rotation, 0x3F
 // Value: 0
 
-// Device name can be obtained if an active scan is performed
-// You can rely only on the addresss filtering and forego device name matching
-
-// CHANGE HERE
 
 
-//Shelly Call Error Check
-
-
-
-function printOpen() {
-    print("Window is open, will toggle the output");
-    // TODO: Add your action here
-}
-
-function printClosed() {
-    print("Window is closed, will toggle the output");
-    // TODO: Add your action here
-}
-
-// remove name prefix to not filter by device name
-// remove address to not filter by address
+// CHANGE THE CONFIG OBJECT TO MATCH YOUR NEEDS
 
 let CONFIG = {
-    // shelly_blu_name_prefix: 'Velux Comble 1',
-    //"BIND" to only this address
     shelly_blu_address: {
         "38:39:8f:99:75:fb": "shellies/comble_velux1",
         "another_address": "another_topic",
         "yet_another_address": "yet_another_topic"
     },
-    actions: [
-        {
-            cond: {
-                Window: 0,
-            },
-            action: printClosed,
-        },
-        {
-            cond: {
-                Window: 1,
-            },
-            action: printOpen,
-        },
-    ],
 };
+
 // END OF CHANGE
+
+// MQTT publish function
+function mqtt_publish(topic, payload) {
+    let message = JSON.stringify(payload);
+    MQTT.publish(topic, message, 0, false);
+}
 
 let ALLTERCO_MFD_ID_STR = "0ba9";
 let BTHOME_SVC_ID_STR = "fcd2";
@@ -87,9 +58,6 @@ let ALLTERCO_MFD_ID = JSON.parse("0x" + ALLTERCO_MFD_ID_STR);
 let BTHOME_SVC_ID = JSON.parse("0x" + BTHOME_SVC_ID_STR);
 
 let SCAN_DURATION = BLE.Scanner.INFINITE_SCAN;
-let ACTIVE_SCAN =
-    typeof CONFIG.shelly_blu_name_prefix !== "undefined" &&
-    CONFIG.shelly_blu_name_prefix !== null;
 
 let uint8 = 0;
 let int8 = 1;
@@ -227,22 +195,10 @@ function scanCB(ev, res) {
     // Get the topic for the current address
     let topic = CONFIG.shelly_blu_address[res.addr];
     console.log("Topic for the current address: ", topic);
-    // execute actions from CONFIG
-    let aIdx = null;
-    for (aIdx in CONFIG.actions) {
-        // skip if no condition defined
-        if (typeof CONFIG.actions[aIdx]["cond"] === "undefined") continue;
-        let cond = CONFIG.actions[aIdx]["cond"];
-        let cIdx = null;
-        let run = true;
-        for (cIdx in cond) {
-            if (typeof BTHparsed[cIdx] === "undefined") run = false;
-            if (BTHparsed[cIdx] !== cond[cIdx]) run = false;
-        }
-        // if all conditions evaluated to true then execute
-        if (run) CONFIG.actions[aIdx]["action"](BTHparsed);
-    }
+    // Publish the data
+    mqtt_publish(topic, BTHparsed);
+
 }
 
 print("Starting BLE scan");
-BLE.Scanner.Start({ duration_ms: SCAN_DURATION, active: ACTIVE_SCAN }, scanCB);
+BLE.Scanner.Start({ duration_ms: SCAN_DURATION, active: false }, scanCB);

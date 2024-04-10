@@ -28,7 +28,7 @@ let CONFIG = {
 
 ## Usage
 
-On your shelly PLUS, activate the Bluetooth Gateway capability.
+On your shelly PLUS, activate the Bluetooth Gateway capability and setup MQTT.
 Then go to Scripts, create a new one, save it, and activate it.
 If you enabled the Websocket debug in the settings, you can see the output of the script in the debug console.
 

@@ -179,7 +179,7 @@ function scanCB(ev, res) {
     // skip if we don't have address match
     if (
         typeof CONFIG.shelly_blu_address !== "undefined" &&
-        !CONFIG.shelly_blu_address.hasOwnProperty(res.addr)
+        !CONFIG.shelly_blu_address.hasOwnProperty(res.addr.toUpperCase())
     )
         return;
     let BTHparsed = ShellyBLUParser.getData(res);
@@ -193,7 +193,7 @@ function scanCB(ev, res) {
     last_packet_id = BTHparsed.pid;
     console.log("Shelly BTH packet: ", JSON.stringify(BTHparsed));
     // Get the topic for the current address
-    let topic = CONFIG.shelly_blu_address[res.addr];
+    let topic = CONFIG.shelly_blu_address[res.addr.toUpperCase()];
     console.log("Topic for the current address: ", topic);
     // Publish the data
     mqtt_publish(topic, BTHparsed);

@@ -45,6 +45,11 @@ let CONFIG = {
 
 // END OF CHANGE
 
+// Convert all addresses to uppercase
+for (let key in CONFIG.shelly_blu_address) {
+    CONFIG.shelly_blu_address[key.toUpperCase()] = CONFIG.shelly_blu_address[key];
+}
+
 // MQTT publish function
 function mqtt_publish(topic, payload) {
     let message = JSON.stringify(payload);

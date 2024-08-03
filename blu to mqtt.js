@@ -1,6 +1,6 @@
 /**
  * This script uses the BLE scan functionality in scripting
- * Selects Shelly BLU DoorWindow from the aired advertisements, decodes
+ * Selects Shelly BLU Motion from the aired advertisements, decodes
  * the service data payload and transfert it to an MQTT broker
  */
 
@@ -74,15 +74,37 @@ function getByteSize(type) {
     return 255;
 }
 
-let BTH = [];
+let BTH = {};
 BTH[0x00] = { n: "pid", t: uint8 };
 BTH[0x01] = { n: "Battery", t: uint8, u: "%" };
+BTH[0x15] = { n: "Battery-OK", t: uint8 };
+BTH[0x16] = { n: "Battery-Charging", t: uint8 };
 BTH[0x05] = { n: "Illuminance", t: uint24, f: 0.01 };
-BTH[0x1a] = { n: "Door", t: uint8 };
+BTH[0x3f] = { n: "Rotation", t: int16, f: 0.1 };
+BTH[0x02] = { n: "Temperature", t: int16, f: 0.01, u: "tC" };
+BTH[0x45] = { n: "Temperature", t: int16, f: 0.1, u: "tF" };
+BTH[0x04] = { n: "Pressure", t: uint24, f: 0.01};
+BTH[0x03] = { n: "Humidity", t: uint16, f: 0.01, u: "%" };
+BTH[0x2e] = { n: "Humidity", t: uint8, f: 1, u: "%" };
+BTH[0x08] = { n: "Dewpoint", t: uint16, f: 0.01};
+BTH[0x14] = { n: "Moisture", t: uint16, f: 0.01};
+BTH[0x2f] = { n: "Moisture", t: uint8, f: 1};
 BTH[0x20] = { n: "Moisture", t: uint8 };
+BTH[0x20] = { n: "Moisture-Warn", t: uint8 };
+BTH[0x12] = { n: "co2", t: uint16};
+BTH[0x17] = { n: "co", t: uint8 };
+BTH[0x0c] = { n: "Voltage", t: uint16, f: 0.001};
+BTH[0x4a] = { n: "Voltage", t: uint16, f: 0.1};
+BTH[0x18] = { n: "Cold", t: uint8 };
+BTH[0x1c] = { n: "Gas", t: uint8 };
+BTH[0x1d] = { n: "Heat", t: uint8 };
+BTH[0x1e] = { n: "Light", t: uint8 };
+BTH[0x1f] = { n: "Lock", t: uint8 };
+BTH[0x1a] = { n: "Door", t: uint8 };
+BTH[0x1b] = { n: "Garage-Door", t: uint8 };
+BTH[0x21] = { n: "Motion", t: uint8 };
 BTH[0x2d] = { n: "Window", t: uint8 };
 BTH[0x3a] = { n: "Button", t: uint8 };
-BTH[0x3f] = { n: "Rotation", t: int16, f: 0.1 };
 
 let BTHomeDecoder = {
     utoi: function (num, bitsz) {
@@ -136,7 +158,7 @@ let BTHomeDecoder = {
         let _value;
         while (buffer.length > 0) {
             _bth = BTH[buffer.at(0)];
-            if (typeof _bth === "undefined") {
+            if (_bth === undefined) {
                 console.log("BTH: unknown type");
                 break;
             }

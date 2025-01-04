@@ -166,52 +166,57 @@ let BTHomeDecoder = {
         return res;
     },
     unpack: function (buffer) {
-        if (typeof buffer !== "string" || buffer.length === 0) return null;
-        let result = {};
-        let tempButtons = [];
-        let _dib = buffer.at(0);
-        result["encryption"] = _dib & 0x1 ? true : false;
-        result["BTHome_version"] = _dib >> 5;
-        if (result["BTHome_version"] !== 2) return null;
-        if (result["encryption"]) return result;
-        buffer = buffer.slice(1);
-    
-        let _bth;
-        let _value;
-        while (buffer.length > 0) {
-            _bth = BTH[buffer.at(0)];
-            if (typeof _bth === "undefined") {
-                console.log("BTH: unknown type");
-                break;
-            }
+            if (typeof buffer !== "string" || buffer.length === 0) return null;
+            let result = {};
+            let tempButtons = [];
+            let _dib = buffer.at(0);
+            result["encryption"] = _dib & 0x1 ? true : false;
+            result["BTHome_version"] = _dib >> 5;
+            if (result["BTHome_version"] !== 2) return null;
+            if (result["encryption"]) return result;
             buffer = buffer.slice(1);
-            _value = this.getBufValue(_bth.t, buffer);
-            if (_value === null) break;
-            if (typeof _bth.f !== "undefined") _value = _value * _bth.f;
-            console.log("BTH: ", _bth.n, _value);
-            
-            // Gestion spéciale pour les boutons multiples
-            // TODO : identifier le bouton par le fait qu'il y a 4 boutons et une batterie
-            if (_bth.n === "Button") { // Ne permet pas d'identifier le bouton type 4
-                tempButtons.push(_value);
-            } else {
-                result[_bth.n] = _value;
+        
+            let _bth;
+            let _value;
+    
+            while (buffer.length > 0) {
+                _bth = BTH[buffer.at(0)];
+                if (typeof _bth === "undefined") {
+                    console.log("BTH: unknown type");
+                    break;
+                }
+                buffer = buffer.slice(1);
+                _value = this.getBufValue(_bth.t, buffer);
+                if (_value === null) break;
+                if (typeof _bth.f !== "undefined") _value = _value * _bth.f;
+                console.log("BTH: ", _bth.n, _value);
+                
+                // Collecte de tous les boutons
+                if (_bth.n === "Button") {
+                    tempButtons.push(_value);
+                } else {
+                    result[_bth.n] = _value;
+                }
+                
+                buffer = buffer.slice(getByteSize(_bth.t));
             }
-            
-            buffer = buffer.slice(getByteSize(_bth.t));
-        }
-
-        // Si on a 4 boutons et une batterie, on crée un format spécifique
-        if (tempButtons.length === 4 && result.hasOwnProperty("Battery")) {
-            result.button1 = tempButtons[0];
-            result.button2 = tempButtons[1];
-            result.button3 = tempButtons[2];
-            result.button4 = tempButtons[3];
-            delete result.Button; // On supprime l'ancienne propriété Button
-        }
-
-        return result;
-    },
+    
+            // Traitement des boutons selon leur nombre
+            if (tempButtons.length > 0) {
+                if (tempButtons.length === 4) {
+                    // Cas spécifique pour 4 boutons
+                    result.button1 = tempButtons[0];
+                    result.button2 = tempButtons[1];
+                    result.button3 = tempButtons[2];
+                    result.button4 = tempButtons[3];
+                } else {
+                    // Cas général: on garde tous les états des boutons dans un tableau
+                    result.buttons = tempButtons;
+                }
+            }
+    
+            return result;
+        },
 };
 
 let ShellyBLUParser = {

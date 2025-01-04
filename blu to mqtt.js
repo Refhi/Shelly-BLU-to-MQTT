@@ -37,18 +37,24 @@
 
 let CONFIG = {
     shelly_blu_address: {
-        "38:39:8f:99:75:fb": "shellies/comble_velux1",
-        "another_address": "another_topic",
-        "yet_another_address": "yet_another_topic"
+        "38:39:8F:99:75:FB": "shellies/comble_velux1",
+        "0C:EF:F6:F2:1E:EC": "shellies/comble_velux2",
+        "B0:C7:DE:2C:31:5C": "shellies/palier",
+        "B0:C7:DE:29:7F:C9": "shellies/etage_sdb",
+        "A4:6D:D4:37:8D:CD": "shellies/fenetre_freyja",
+        "A4:6D:D4:37:72:CB": "shellies/fenetre_isis",
+        "3c:2e:f5:72:ac:62": "shellies/blubutton1",
+        "a4:6d:d4:38:31:0b": "shellies/blackbutton",
+        "a4:6d:d4:38:15:95": "shellies/whitebutton",
+        "7c:c6:b6:76:8f:a3": "shellies/fourbuttons"
     },
 };
-
-// END OF CHANGE
-
-// Convert all addresses to uppercase
+// Convertit les adresses en majuscules
 for (let key in CONFIG.shelly_blu_address) {
     CONFIG.shelly_blu_address[key.toUpperCase()] = CONFIG.shelly_blu_address[key];
 }
+
+// END OF CHANGE
 
 // MQTT publish function
 function mqtt_publish(topic, payload) {
@@ -111,6 +117,18 @@ BTH[0x21] = { n: "Motion", t: uint8 };
 BTH[0x2d] = { n: "Window", t: uint8 };
 BTH[0x3a] = { n: "Button", t: uint8 };
 
+// Specific to Shelly BLU RC Button 4
+const ACTION = {
+    0x00: "None",
+    0x01: "press",
+    0x02: "double_press",
+    0x03: "triple_press",
+    0x04: "long_press",
+    0x05: "long_double_press",
+    0x06: "long_triple_press",
+    0xFE: "hold_press",
+};
+
 let BTHomeDecoder = {
     utoi: function (num, bitsz) {
         let mask = 1 << (bitsz - 1);
@@ -148,17 +166,16 @@ let BTHomeDecoder = {
         return res;
     },
     unpack: function (buffer) {
-        // beacons might not provide BTH service data
         if (typeof buffer !== "string" || buffer.length === 0) return null;
         let result = {};
+        let tempButtons = [];
         let _dib = buffer.at(0);
         result["encryption"] = _dib & 0x1 ? true : false;
         result["BTHome_version"] = _dib >> 5;
         if (result["BTHome_version"] !== 2) return null;
-        //Can not handle encrypted data
         if (result["encryption"]) return result;
         buffer = buffer.slice(1);
-
+    
         let _bth;
         let _value;
         while (buffer.length > 0) {
@@ -171,9 +188,28 @@ let BTHomeDecoder = {
             _value = this.getBufValue(_bth.t, buffer);
             if (_value === null) break;
             if (typeof _bth.f !== "undefined") _value = _value * _bth.f;
-            result[_bth.n] = _value;
+            console.log("BTH: ", _bth.n, _value);
+            
+            // Gestion spéciale pour les boutons multiples
+            // TODO : identifier le bouton par le fait qu'il y a 4 boutons et une batterie
+            if (_bth.n === "Button") { // Ne permet pas d'identifier le bouton type 4
+                tempButtons.push(_value);
+            } else {
+                result[_bth.n] = _value;
+            }
+            
             buffer = buffer.slice(getByteSize(_bth.t));
         }
+
+        // Si on a 4 boutons et une batterie, on crée un format spécifique
+        if (tempButtons.length === 4 && result.hasOwnProperty("Battery")) {
+            result.button1 = tempButtons[0];
+            result.button2 = tempButtons[1];
+            result.button3 = tempButtons[2];
+            result.button4 = tempButtons[3];
+            delete result.Button; // On supprime l'ancienne propriété Button
+        }
+
         return result;
     },
 };

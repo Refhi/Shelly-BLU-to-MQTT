@@ -37,16 +37,9 @@
 
 let CONFIG = {
     shelly_blu_address: {
-        "38:39:8F:99:75:FB": "shellies/comble_velux1",
-        "0C:EF:F6:F2:1E:EC": "shellies/comble_velux2",
-        "B0:C7:DE:2C:31:5C": "shellies/palier",
-        "B0:C7:DE:29:7F:C9": "shellies/etage_sdb",
-        "A4:6D:D4:37:8D:CD": "shellies/fenetre_freyja",
-        "A4:6D:D4:37:72:CB": "shellies/fenetre_isis",
-        "3c:2e:f5:72:ac:62": "shellies/blubutton1",
-        "a4:6d:d4:38:31:0b": "shellies/blackbutton",
-        "a4:6d:d4:38:15:95": "shellies/whitebutton",
-        "7c:c6:b6:76:8f:a3": "shellies/fourbuttons"
+        "38:39:8f:99:75:fb": "shellies/comble_velux1",
+        "another_address": "another_topic",
+        "yet_another_address": "yet_another_topic"
     },
 };
 // Convertit les adresses en majuscules
@@ -166,57 +159,53 @@ let BTHomeDecoder = {
         return res;
     },
     unpack: function (buffer) {
-            if (typeof buffer !== "string" || buffer.length === 0) return null;
-            let result = {};
-            let tempButtons = [];
-            let _dib = buffer.at(0);
-            result["encryption"] = _dib & 0x1 ? true : false;
-            result["BTHome_version"] = _dib >> 5;
-            if (result["BTHome_version"] !== 2) return null;
-            if (result["encryption"]) return result;
+        if (typeof buffer !== "string" || buffer.length === 0) return null;
+        let result = {};
+        let tempButtons = [];
+        let _dib = buffer.at(0);
+        result["encryption"] = _dib & 0x1 ? true : false;
+        result["BTHome_version"] = _dib >> 5;
+        if (result["BTHome_version"] !== 2) return null;
+        if (result["encryption"]) return result;
+        buffer = buffer.slice(1);
+    
+        let _bth;
+        let _value;
+    
+        while (buffer.length > 0) {
+            _bth = BTH[buffer.at(0)];
+            if (typeof _bth === "undefined") {
+                console.log("BTH: unknown type");
+                break;
+            }
             buffer = buffer.slice(1);
-        
-            let _bth;
-            let _value;
-    
-            while (buffer.length > 0) {
-                _bth = BTH[buffer.at(0)];
-                if (typeof _bth === "undefined") {
-                    console.log("BTH: unknown type");
-                    break;
-                }
-                buffer = buffer.slice(1);
-                _value = this.getBufValue(_bth.t, buffer);
-                if (_value === null) break;
-                if (typeof _bth.f !== "undefined") _value = _value * _bth.f;
-                console.log("BTH: ", _bth.n, _value);
-                
-                // Collecte de tous les boutons
-                if (_bth.n === "Button") {
-                    tempButtons.push(_value);
-                } else {
-                    result[_bth.n] = _value;
-                }
-                
-                buffer = buffer.slice(getByteSize(_bth.t));
+            _value = this.getBufValue(_bth.t, buffer);
+            if (_value === null) break;
+            if (typeof _bth.f !== "undefined") _value = _value * _bth.f;
+            console.log("BTH: ", _bth.n, _value);
+            
+            // Collecte de tous les boutons
+            if (_bth.n === "Button") {
+                tempButtons.push(_value);
+            } else {
+                result[_bth.n] = _value;
             }
+            
+            buffer = buffer.slice(getByteSize(_bth.t));
+        }
     
-            // Traitement des boutons selon leur nombre
-            if (tempButtons.length > 0) {
-                if (tempButtons.length === 4) {
-                    // Cas spécifique pour 4 boutons
-                    result.button1 = tempButtons[0];
-                    result.button2 = tempButtons[1];
-                    result.button3 = tempButtons[2];
-                    result.button4 = tempButtons[3];
-                } else {
-                    // Cas général: on garde tous les états des boutons dans un tableau
-                    result.buttons = tempButtons;
-                }
+        // Traitement des boutons selon leur nombre
+        if (tempButtons.length > 0) {
+            if (tempButtons.length === 1) {
+                // Lonely button
+                result.Button = tempButtons[0];
+            } else {
+                result.Buttons = tempButtons;
             }
-    
-            return result;
-        },
+        }
+        console.log("result: ", JSON.stringify(result));
+        return result;
+    },
 };
 
 let ShellyBLUParser = {
